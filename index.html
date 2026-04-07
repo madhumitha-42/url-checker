@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🛡️ CRT Safe-Jump</title>
+    <style>
+        /* Keeping your sleek styling */
+        body { font-family: system-ui, sans-serif; background: #1a1a2e; color: white; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
+        .card { background: #16213e; padding: 2rem; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); width: 100%; max-width: 400px; text-align: center; }
+        input { width: 100%; padding: 12px; margin: 15px 0; border-radius: 8px; border: 1px solid #0f3460; background: #0f3460; color: white; box-sizing: border-box; }
+        button { width: 100%; padding: 12px; border: none; border-radius: 8px; background: #e94560; color: white; font-weight: bold; cursor: pointer; transition: 0.3s; }
+        button:hover { background: #ff4d6d; }
+        .status { margin-top: 15px; padding: 10px; border-radius: 8px; display: none; }
+        .safe { background: #28a745; display: block; }
+        .danger { background: #dc3545; display: block; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h2>URL Safety Gate</h2>
+    <p>Enter a URL to verify and open</p>
+    <input type="text" id="targetUrl" placeholder="https://example.com" />
+    <button onclick="verifyAndOpen()">Verify & Open Website</button>
+    <div id="statusBox" class="status"></div>
+</div>
+
+<script>
+async function verifyAndOpen() {
+    const input = document.getElementById('targetUrl').value.trim();
+    const statusBox = document.getElementById('statusBox');
+    
+    if (!input) {
+        alert("Please enter a URL first.");
+        return;
+    }
+
+    // Add protocol if missing
+    const urlString = input.startsWith('http') ? input : `https://${input}`;
+    
+    try {
+        const url = new URL(urlString);
+        statusBox.className = 'status';
+        statusBox.innerHTML = "🔍 Scanning for threats...";
+        statusBox.style.display = 'block';
+
+        // --- DYNAMIC CHECK LOGIC ---
+        // In a production app, you would fetch() an API here.
+        // For this version, we perform a multi-point heuristic check:
+        const isSuspicious = performHeuristicCheck(url);
+
+        if (isSuspicious.length === 0) {
+            statusBox.className = 'status safe';
+            statusBox.innerHTML = "✅ Website Verified. Redirecting...";
+            
+            // Wait 1.5 seconds so user sees the "Safe" status before redirect
+            setTimeout(() => {
+                window.location.href = url.href;
+            }, 1500);
+        } else {
+            statusBox.className = 'status danger';
+            statusBox.innerHTML = `⚠️ <b>DANGER:</b> ${isSuspicious[0]}<br>Access Blocked for safety.`;
+        }
+
+    } catch (e) {
+        statusBox.className = 'status danger';
+        statusBox.innerHTML = "❌ Invalid URL format.";
+    }
+}
+
+function performHeuristicCheck(urlObj) {
+    const alerts = [];
+    const host = urlObj.hostname;
+
+    // 1. Check for IP-based URLs (Common in phishing)
+    if (/^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$/.test(host)) {
+        alerts.push("IP-based hosting is highly suspicious.");
+    }
+
+    // 2. Check for suspicious TLDs
+    const badTlds = ['.tk', '.ml', '.ga', '.cf', '.gq', '.xyz', '.top'];
+    if (badTlds.some(tld => host.endsWith(tld))) {
+        alerts.push("Unreliable Top-Level Domain (TLD).");
+    }
+
+    // 3. Check for "Punycode" (Homograph attacks like googIe.com)
+    if (host.includes('xn--')) {
+        alerts.push("Hidden characters detected (Spoofing attempt).");
+    }
+
+    // 4. Check for excessive subdomains
+    if (host.split('.').length > 3) {
+        alerts.push("Excessive subdomains (Typical of phishing tunnels).");
+    }
+
+    return alerts;
+}
+</script>
+
+</body>
+</html>
